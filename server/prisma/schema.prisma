@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  PETUGAS
+}
+
+enum ScheduleStatus {
+  ON_TIME
+  DELAYED
+  CANCELLED
+  DEPARTED
+}
+
+enum BookingType {
+  PENUMPANG
+  BARANG
+}
+
+enum BookingStatus {
+  PENDING
+  PAID
+  CANCELLED
+  EXPIRED
+  CHECKED_IN
+}
+
+enum PaymentMethod {
+  ONLINE
+  OFFLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  password  String
+  phone     String?
+  role      Role      @default(USER)
+  createdAt DateTime  @default(now())
+  bookings  Booking[]
+}
+
+model Port {
+  id     Int     @id @default(autoincrement())
+  name   String
+  city   String
+  origin Route[] @relation("origin")
+  dest   Route[] @relation("destination")
+}
+
+model Ship {
+  id        Int        @id @default(autoincrement())
+  name      String
+  capacity  Int
+  schedules Schedule[]
+}
+
+model Route {
+  id            Int        @id @default(autoincrement())
+  originId      Int
+  destinationId Int
+  durationMin   Int
+  origin        Port       @relation("origin", fields: [originId], references: [id])
+  destination   Port       @relation("destination", fields: [destinationId], references: [id])
+  schedules     Schedule[]
+}
+
+model Schedule {
+  id            Int            @id @default(autoincrement())
+  shipId        Int
+  routeId       Int
+  departureTime DateTime
+  arrivalTime   DateTime
+  priceEkonomi  Int
+  priceVip      Int
+  quotaEkonomi  Int
+  quotaVip      Int
+  cargoCapacityKg Int          @default(0)
+  status        ScheduleStatus @default(ON_TIME)
+  ship          Ship           @relation(fields: [shipId], references: [id])
+  route         Route          @relation(fields: [routeId], references: [id])
+  bookings      Booking[]
+}
+
+model Booking {
+  id          Int           @id @default(autoincrement())
+  code        String        @unique
+  userId      Int
+  scheduleId  Int
+  type        BookingType
+  seatClass   String?
+  totalPrice  Int
+  status      BookingStatus @default(PENDING)
+  expiredAt   DateTime
+  createdAt   DateTime      @default(now())
+  user        User          @relation(fields: [userId], references: [id])
+  schedule    Schedule      @relation(fields: [scheduleId], references: [id])
+  passengers  Passenger[]
+  cargoItems  CargoItem[]
+  payment     Payment?
+  qrToken     QrToken?
+}
+
+model Passenger {
+  id        Int     @id @default(autoincrement())
+  bookingId Int
+  name      String
+  idNumber  String
+  age       Int
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model CargoItem {
+  id          Int     @id @default(autoincrement())
+  bookingId   Int
+  description String
+  weightKg    Float
+  lengthCm    Float
+  widthCm     Float
+  heightCm    Float
+  booking     Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id        Int           @id @default(autoincrement())
+  bookingId Int           @unique
+  method    PaymentMethod
+  amount    Int
+  status    PaymentStatus @default(PENDING)
+  proofUrl  String?
+  paidAt    DateTime?
+  verifiedBy Int?
+  booking   Booking       @relation(fields: [bookingId], references: [id])
+}
+
+model QrToken {
+  id         Int       @id @default(autoincrement())
+  bookingId  Int       @unique
+  token      String    @unique
+  isUsed     Boolean   @default(false)
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+  booking    Booking   @relation(fields: [bookingId], references: [id])
+}
